@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>KRAFTNETZ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e13;
+    --panel:#10151c;
+    --panel-edge:#1c2530;
+    --line:#182029;
+    --path:#241a12;
+    --path-edge:#4a3826;
+    --gold:#f0b429;
+    --energy:#4fd1c5;
+    --energy-dim:#1f4a48;
+    --danger:#ef4444;
+    --text:#dbe4ee;
+    --text-dim:#5c6774;
+    --turret:#7dd3fc;
+    --cannon:#fb923c;
+    --solar:#f0b429;
+    --coal:#ef6a3d;
+    --pole:#4fd1c5;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{margin:0; padding:0; height:100%; background:var(--bg); overflow:hidden;
+    font-family:'IBM Plex Mono',monospace; color:var(--text);}
+  #app{display:flex; flex-direction:column; height:100vh; height:100dvh;}
+
+  header{flex:0 0 auto; padding:10px 12px 8px; border-bottom:1px solid var(--panel-edge); background:var(--panel);}
+  .title{font-family:'IBM Plex Sans Condensed',sans-serif; font-weight:700; font-size:13px;
+    letter-spacing:0.14em; color:var(--energy); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;}
+  .title small{color:var(--text-dim); font-weight:600; letter-spacing:0.08em; font-size:10px;}
+  .stats{display:flex; gap:14px; font-size:12px; flex-wrap:wrap;}
+  .stat{display:flex; flex-direction:column; gap:1px; min-width:44px;}
+  .stat .k{color:var(--text-dim); font-size:9px; letter-spacing:0.08em; text-transform:uppercase;}
+  .stat .v{font-weight:600; font-size:14px;}
+  .v.gold{color:var(--gold);}
+  .v.energy-ok{color:var(--energy);}
+  .v.energy-bad{color:var(--danger);}
+  .v.lives-low{color:var(--danger);}
+  .ctrls{display:flex; gap:6px; margin-left:auto;}
+  .iconbtn{background:var(--line); border:1px solid var(--panel-edge); color:var(--text);
+    border-radius:6px; width:30px; height:30px; font-size:13px; display:flex; align-items:center; justify-content:center;}
+  .iconbtn.active{background:var(--energy-dim); border-color:var(--energy); color:var(--energy);}
+
+  main{flex:1 1 auto; display:flex; align-items:center; justify-content:center; position:relative; min-height:0; padding:6px;}
+  canvas{background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px;
+    max-width:100%; max-height:100%; touch-action:none;}
+
+  #toast{position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    background:rgba(16,21,28,0.92); border:1px solid var(--panel-edge); padding:6px 12px;
+    border-radius:6px; font-size:11px; color:var(--text-dim); opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap;}
+  #toast.show{opacity:1;}
+
+  #wavebar{position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    background:rgba(16,21,28,0.92); border:1px solid var(--panel-edge); padding:5px 12px;
+    border-radius:6px; font-size:11px; color:var(--text-dim); display:flex; gap:8px; align-items:center;}
+  #wavebar button{background:var(--energy-dim); color:var(--energy); border:1px solid var(--energy);
+    border-radius:4px; padding:3px 8px; font-size:10px; font-family:inherit; font-weight:600;}
+
+  footer{flex:0 0 auto; background:var(--panel); border-top:1px solid var(--panel-edge); padding:8px;}
+  .info{font-size:10px; color:var(--text-dim); min-height:14px; margin-bottom:6px; padding:0 2px;}
+  .info b{color:var(--text);}
+  .palette{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;}
+  .bbtn{flex:0 0 auto; width:60px; background:var(--line); border:1px solid var(--panel-edge);
+    border-radius:8px; padding:6px 2px; display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .bbtn .ic{font-size:16px; line-height:1;}
+  .bbtn .nm{font-size:8px; color:var(--text-dim); letter-spacing:0.02em; text-align:center;}
+  .bbtn .cs{font-size:10px; font-weight:600; color:var(--gold);}
+  .bbtn.selected{border-color:var(--energy); background:var(--energy-dim);}
+  .bbtn.disabled{opacity:0.35;}
+  .bbtn.sell{border-color:var(--danger);}
+  .bbtn.sell.selected{background:rgba(239,68,68,0.15); border-color:var(--danger);}
+
+  #gameover{position:absolute; inset:0; background:rgba(10,14,19,0.94); display:none;
+    align-items:center; justify-content:center; flex-direction:column; gap:14px; z-index:10;}
+  #gameover.show{display:flex;}
+  #gameover .go-title{font-family:'IBM Plex Sans Condensed'; font-weight:700; font-size:22px; letter-spacing:0.1em; color:var(--danger);}
+  #gameover .go-sub{font-size:12px; color:var(--text-dim);}
+  #gameover button{background:var(--energy-dim); color:var(--energy); border:1px solid var(--energy);
+    border-radius:6px; padding:10px 22px; font-family:inherit; font-weight:600; font-size:12px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="title">KRAFTNETZ <small>ENERGIE-VERTEIDIGUNG</small></div>
+    <div class="stats">
+      <div class="stat"><span class="k">Gold</span><span class="v gold" id="s-gold">150</span></div>
+      <div class="stat"><span class="k">Energie</span><span class="v energy-ok" id="s-energy">0/0</span></div>
+      <div class="stat"><span class="k">Leben</span><span class="v" id="s-lives">20</span></div>
+      <div class="stat"><span class="k">Welle</span><span class="v" id="s-wave">0</span></div>
+      <div class="ctrls">
+        <div class="iconbtn" id="btn-pause">⏸</div>
+        <div class="iconbtn" id="btn-speed">1x</div>
+      </div>
+    </div>
+  </header>
+  <main>
+    <canvas id="c"></canvas>
+    <div id="toast"></div>
+    <div id="wavebar">
+      <span id="wave-status">Bereit</span>
+      <button id="btn-skip">Jetzt starten</button>
+    </div>
+    <div id="gameover">
+      <div class="go-title">NETZWERK ZUSAMMENGEBROCHEN</div>
+      <div class="go-sub" id="go-stats">Welle 0 erreicht</div>
+      <button id="btn-restart">Neustart</button>
+    </div>
+  </main>
+  <footer>
+    <div class="info" id="info-bar">Wähle ein Gebäude, dann tippe auf ein freies Feld.</div>
+    <div class="palette" id="palette"></div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  // ---------- Grid & Path ----------
+  const COLS=7, ROWS=11, CELL=64;
+  const canvas=document.getElementById('c');
+  canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
+  const ctx=canvas.getContext('2d');
+
+  const waypointsGrid=[{c:1,r:-1},{c:1,r:2},{c:5,r:2},{c:5,r:5},{c:1,r:5},{c:1,r:8},{c:5,r:8},{c:5,r:12}];
+  const waypoints=waypointsGrid.map(p=>({x:p.c*CELL+CELL/2, y:p.r*CELL+CELL/2}));
+
+  function computeBlocked(){
+    const set=new Set();
+    for(let i=0;i<waypointsGrid.length-1;i++){
+      const a=waypointsGrid[i], b=waypointsGrid[i+1];
+      if(a.c===b.c){
+        const step=a.r<b.r?1:-1;
+        for(let r=a.r; ; r+=step){ if(r>=0&&r<ROWS) set.add(a.c+','+r); if(r===b.r) break; }
+      } else {
+        const step=a.c<b.c?1:-1;
+        for(let c=a.c; ; c+=step){ if(c>=0&&c<COLS) set.add(c+','+a.r); if(c===b.c) break; }
+      }
+    }
+    return set;
+  }
+  const blocked=computeBlocked();
+
+  // ---------- Building defs ----------
+  const DEFS={
+    solar:{name:'Solarpanel',cost:50,energy:9,use:0,range:0,radius:120,color:'var(--solar)',hex:'#f0b429',icon:'☀'},
+    coal:{name:'Generator',cost:130,energy:26,use:0,range:0,radius:120,color:'var(--coal)',hex:'#ef6a3d',icon:'⚡'},
+    pole:{name:'Leitmast',cost:22,energy:0,use:0,range:0,radius:170,color:'var(--pole)',hex:'#4fd1c5',icon:'┃'},
+    turret:{name:'Turm',cost:65,energy:0,use:6,range:105,radius:120,damage:5,fireRate:2.2,color:'var(--turret)',hex:'#7dd3fc',icon:'◎'},
+    cannon:{name:'Kanone',cost:170,energy:0,use:16,range:135,radius:120,damage:24,fireRate:0.6,color:'var(--cannon)',hex:'#fb923c',icon:'●'}
+  };
+  const BUILD_ORDER=['solar','coal','pole','turret','cannon'];
+
+  // ---------- State ----------
+  let gold, lives, wave, buildings, enemies, shots, particles;
+  let selectedType=null, sellMode=false;
+  let waveState, waveTimer, spawnQueue, spawnTimer;
+  let paused=false, timeScale=1, gameOver=false;
+  let last=null;
+
+  function reset(){
+    gold=150; lives=20; wave=0;
+    buildings=[]; enemies=[]; shots=[]; particles=[];
+    selectedType=null; sellMode=false;
+    waveState='intermission'; waveTimer=4; spawnQueue=0; spawnTimer=0;
+    paused=false; timeScale=1; gameOver=false; last=null;
+    document.getElementById('gameover').classList.remove('show');
+    document.getElementById('btn-pause').textContent='⏸';
+    document.getElementById('btn-speed').textContent='1x';
+    buildPalette();
+    updateHUD();
+  }
+
+  // ---------- Palette UI ----------
+  function buildPalette(){
+    const el=document.getElementById('palette');
+    el.innerHTML='';
+    BUILD_ORDER.forEach(type=>{
+      const def=DEFS[type];
+      const btn=document.createElement('div');
+      btn.className='bbtn'; btn.dataset.type=type;
+      btn.innerHTML=`<div class="ic" style="color:${def.hex}">${def.icon}</div><div class="nm">${def.name}</div><div class="cs">${def.cost}</div>`;
+      btn.addEventListener('pointerdown',()=>{
+        if(gameOver) return;
+        sellMode=false;
+        selectedType = (selectedType===type)? null : type;
+        refreshPalette();
+        showInfo(selectedType? infoText(type) : 'Wähle ein Gebäude, dann tippe auf ein freies Feld.');
+      });
+      el.appendChild(btn);
+    });
+    const sell=document.createElement('div');
+    sell.className='bbtn sell'; sell.id='sellbtn';
+    sell.innerHTML=`<div class="ic" style="color:var(--danger)">✕</div><div class="nm">Abriss</div><div class="cs">50%</div>`;
+    sell.addEventListener('pointerdown',()=>{
+      if(gameOver) return;
+      selectedType=null;
+      sellMode=!sellMode;
+      refreshPalette();
+      showInfo(sellMode? 'Abrissmodus: Tippe auf ein Gebäude, um es zu verkaufen (50% Rückerstattung).' : 'Wähle ein Gebäude, dann tippe auf ein freies Feld.');
+    });
+    el.appendChild(sell);
+    refreshPalette();
+  }
+  function infoText(type){
+    const d=DEFS[type];
+    let extra='';
+    if(d.energy) extra=`Erzeugt ${d.energy} Energie/s.`;
+    if(d.use) extra=`Verbraucht ${d.use} Energie/s, Schaden ${d.damage}, Reichweite ${d.range}px.`;
+    if(type==='pole') extra='Verbindet entfernte Netzabschnitte (kein Verbrauch).';
+    return `<b>${d.name}</b> — Kosten ${d.cost} Gold. ${extra}`;
+  }
+  function refreshPalette(){
+    document.querySelectorAll('.bbtn').forEach(btn=>{
+      const type=btn.dataset.type;
+      if(type){
+        btn.classList.toggle('selected', selectedType===type);
+        btn.classList.toggle('disabled', gold<DEFS[type].cost);
+      }
+    });
+    document.getElementById('sellbtn').classList.toggle('selected', sellMode);
+  }
+  function showInfo(html){ document.getElementById('info-bar').innerHTML=html; }
+
+  let toastTimer=null;
+  function showToast(msg){
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>t.classList.remove('show'),1400);
+  }
+
+  // ---------- Input ----------
+  canvas.addEventListener('pointerdown', e=>{
+    if(gameOver) return;
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+    const x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sy;
+    const col=Math.floor(x/CELL), row=Math.floor(y/CELL);
+    handleTap(col,row);
+  });
+
+  function handleTap(col,row){
+    if(col<0||col>=COLS||row<0||row>=ROWS) return;
+    const existing=buildings.find(b=>b.col===col&&b.row===row);
+    if(sellMode){
+      if(existing){
+        gold += Math.floor(DEFS[existing.type].cost*0.5);
+        buildings=buildings.filter(b=>b!==existing);
+        showToast('Verkauft: '+DEFS[existing.type].name);
+        updateHUD();
+      }
+      return;
+    }
+    if(!selectedType) return;
+    if(existing){ showToast('Feld belegt'); return; }
+    if(blocked.has(col+','+row)){ showToast('Nicht auf dem Pfad'); return; }
+    const def=DEFS[selectedType];
+    if(gold<def.cost){ showToast('Zu wenig Gold'); return; }
+    gold-=def.cost;
+    buildings.push({type:selectedType, col,row, x:col*CELL+CELL/2, y:row*CELL+CELL/2, cooldownTimer:0, powerRatio:0});
+    showToast(def.name+' gebaut');
+    updateHUD();
+  }
+
+  // ---------- Power network ----------
+  function recomputePower(){
+    const n=buildings.length;
+    const parent=Array.from({length:n},(_,i)=>i);
+    function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+    function union(a,b){ a=find(a); b=find(b); if(a!==b) parent[a]=b; }
+    for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){
+      const bi=buildings[i], bj=buildings[j];
+      const d=Math.hypot(bi.x-bj.x, bi.y-bj.y);
+      const rad=Math.min(DEFS[bi.type].radius, DEFS[bj.type].radius);
+      if(d<=rad) union(i,j);
+    }
+    const groups={};
+    for(let i=0;i<n;i++){ const r=find(i); (groups[r]=groups[r]||[]).push(i); }
+    let totalSupply=0, totalDemand=0;
+    for(const key in groups){
+      const idxs=groups[key];
+      let supply=0, demand=0;
+      idxs.forEach(i=>{ const d=DEFS[buildings[i].type]; supply+=d.energy||0; demand+=d.use||0; });
+      const ratio = demand>0 ? Math.min(1, supply/demand) : 1;
+      idxs.forEach(i=> buildings[i].powerRatio = ratio);
+      totalSupply+=supply; totalDemand+=demand;
+    }
+    return {totalSupply, totalDemand};
+  }
+
+  // ---------- Enemies ----------
+  function spawnEnemy(){
+    const hp = 16 + wave*7;
+    enemies.push({x:waypoints[0].x, y:waypoints[0].y, segment:0, hp, maxHp:hp,
+      speed: 46 + Math.min(wave*1.6, 40), progress:0, alive:true});
+  }
+  function updateEnemy(e, dt){
+    const target=waypoints[e.segment+1];
+    if(!target) return 'leak';
+    const dx=target.x-e.x, dy=target.y-e.y;
+    const dist=Math.hypot(dx,dy);
+    const step=e.speed*dt;
+    if(step>=dist){
+      e.x=target.x; e.y=target.y; e.segment++; e.progress+=dist;
+      if(e.segment>=waypoints.length-1) return 'leak';
+    } else {
+      e.x+=dx/dist*step; e.y+=dy/dist*step; e.progress+=step;
+    }
+    return null;
+  }
+
+  // ---------- Wave flow ----------
+  function updateWave(dt){
+    const statusEl=document.getElementById('wave-status');
+    if(waveState==='intermission'){
+      waveTimer-=dt;
+      statusEl.textContent = wave===0 ? `Start in ${Math.max(0,waveTimer|0)}s` : `Nächste Welle in ${Math.max(0,waveTimer|0)}s`;
+      if(waveTimer<=0) startWave();
+    } else if(waveState==='spawning'){
+      statusEl.textContent = `Welle ${wave} — Gegner erscheinen`;
+      spawnTimer-=dt;
+      if(spawnTimer<=0 && spawnQueue>0){ spawnEnemy(); spawnQueue--; spawnTimer=0.55; }
+      if(spawnQueue<=0) waveState='active';
+    } else if(waveState==='active'){
+      statusEl.textContent = `Welle ${wave} — ${enemies.length} Gegner aktiv`;
+      if(enemies.length===0){
+        const bonus=15+wave*5;
+        gold+=bonus;
+        showToast(`Welle ${wave} abgeschlossen! +${bonus} Gold`);
+        waveState='intermission'; waveTimer=6;
+      }
+    }
+  }
+  function startWave(){
+    wave++; spawnQueue=5+wave*2; spawnTimer=0; waveState='spawning';
+  }
+  document.getElementById('btn-skip').addEventListener('pointerdown',()=>{
+    if(waveState==='intermission'){ waveTimer=0; }
+  });
+
+  // ---------- Turrets firing ----------
+  function updateTurrets(dt){
+    buildings.forEach(b=>{
+      const def=DEFS[b.type];
+      if(!def.use) return;
+      b.cooldownTimer-=dt;
+      if(b.cooldownTimer>0) return;
+      const rate=def.fireRate*(b.powerRatio||0);
+      if(rate<=0){ b.cooldownTimer=0.2; return; }
+      let target=null, bestProgress=-1;
+      enemies.forEach(e=>{
+        const d=Math.hypot(e.x-b.x, e.y-b.y);
+        if(d<=def.range && e.progress>bestProgress){ bestProgress=e.progress; target=e; }
+      });
+      if(target){
+        target.hp-=def.damage;
+        shots.push({x1:b.x,y1:b.y,x2:target.x,y2:target.y,life:0.12,color:def.hex});
+        b.cooldownTimer=1/rate;
+        if(target.hp<=0 && target.alive){
+          target.alive=false;
+          gold+=3;
+          particles.push({x:target.x,y:target.y,life:0.4,color:'#ef4444'});
+        }
+      } else {
+        b.cooldownTimer=0.15;
+      }
+    });
+  }
+
+  // ---------- HUD ----------
+  function updateHUD(){
+    document.getElementById('s-gold').textContent=gold;
+    document.getElementById('s-lives').textContent=lives;
+    document.getElementById('s-lives').className='v'+(lives<=6?' lives-low':'');
+    document.getElementById('s-wave').textContent=wave;
+    refreshPalette();
+  }
+
+  // ---------- Rendering ----------
+  const pulseStart=performance.now();
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // grid
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const isPath=blocked.has(c+','+r);
+      ctx.fillStyle = isPath ? '#241a12' : (( (r+c)%2===0 )?'#0d131a':'#0e141b');
+      ctx.fillRect(c*CELL, r*CELL, CELL, CELL);
+      if(isPath){ ctx.strokeStyle='#4a3826'; ctx.lineWidth=1; ctx.strokeRect(c*CELL+0.5,r*CELL+0.5,CELL-1,CELL-1); }
+    }
+    ctx.strokeStyle='#182029'; ctx.lineWidth=1;
+    for(let c=0;c<=COLS;c++){ ctx.beginPath(); ctx.moveTo(c*CELL,0); ctx.lineTo(c*CELL,canvas.height); ctx.stroke(); }
+    for(let r=0;r<=ROWS;r++){ ctx.beginPath(); ctx.moveTo(0,r*CELL); ctx.lineTo(canvas.width,r*CELL); ctx.stroke(); }
+
+    // power connections (signature element)
+    const pulse=0.5+0.5*Math.sin((performance.now()-pulseStart)/500);
+    for(let i=0;i<buildings.length;i++) for(let j=i+1;j<buildings.length;j++){
+      const bi=buildings[i], bj=buildings[j];
+      const d=Math.hypot(bi.x-bj.x,bi.y-bj.y);
+      const rad=Math.min(DEFS[bi.type].radius, DEFS[bj.type].radius);
+      if(d<=rad && bi.powerRatio>0 && bj.powerRatio>0){
+        ctx.strokeStyle=`rgba(79,209,197,${0.15+0.25*pulse})`;
+        ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(bi.x,bi.y); ctx.lineTo(bj.x,bj.y); ctx.stroke();
+      }
+    }
+
+    // buildings
+    buildings.forEach(b=>{
+      const def=DEFS[b.type];
+      const unpowered = def.use>0 && (b.powerRatio||0)<=0;
+      ctx.save();
+      ctx.translate(b.x,b.y);
+      ctx.fillStyle = unpowered? '#3a4048' : def.hex;
+      ctx.globalAlpha = unpowered? 0.5 : 1;
+      ctx.beginPath(); ctx.arc(0,0,17,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+      ctx.fillStyle='#0a0e13';
+      ctx.font='16px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(def.icon,0,1);
+      ctx.restore();
+      if(unpowered){
+        ctx.strokeStyle='#ef4444'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(b.x-12,b.y+12); ctx.lineTo(b.x+12,b.y-12); ctx.stroke();
+      }
+    });
+
+    // enemies
+    enemies.forEach(e=>{
+      ctx.fillStyle='#ef4444';
+      ctx.beginPath(); ctx.arc(e.x,e.y,9,0,Math.PI*2); ctx.fill();
+      const w=22, h=3;
+      ctx.fillStyle='#1c2530'; ctx.fillRect(e.x-w/2, e.y-16, w, h);
+      ctx.fillStyle='#22c55e'; ctx.fillRect(e.x-w/2, e.y-16, w*Math.max(0,e.hp/e.maxHp), h);
+    });
+
+    // shots
+    shots.forEach(s=>{
+      ctx.strokeStyle=s.color; ctx.globalAlpha=Math.max(0,s.life/0.12); ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+      ctx.globalAlpha=1;
+    });
+    // particles
+    particles.forEach(p=>{
+      ctx.fillStyle=p.color; ctx.globalAlpha=Math.max(0,p.life/0.4);
+      ctx.beginPath(); ctx.arc(p.x,p.y, 10*(1-p.life/0.4)+4, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+    });
+  }
+
+  // ---------- Main loop ----------
+  function loop(now){
+    if(last===null) last=now;
+    let dt=(now-last)/1000; last=now;
+    dt=Math.min(dt,0.05)*timeScale;
+    if(!paused && !gameOver){
+      updateWave(dt);
+      const {totalSupply,totalDemand}=recomputePower();
+      updateTurrets(dt);
+      for(let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        if(!e.alive){ enemies.splice(i,1); continue; }
+        const res=updateEnemy(e,dt);
+        if(res==='leak'){
+          lives--; enemies.splice(i,1);
+          particles.push({x:waypoints[waypoints.length-1].x,y:waypoints[waypoints.length-1].y,life:0.4,color:'#ef4444'});
+          if(lives<=0){ triggerGameOver(); }
+        }
+      }
+      shots.forEach(s=>s.life-=dt); shots=shots.filter(s=>s.life>0);
+      particles.forEach(p=>p.life-=dt); particles=particles.filter(p=>p.life>0);
+
+      const energyEl=document.getElementById('s-energy');
+      energyEl.textContent=`${Math.round(totalSupply)}/${Math.round(totalDemand)}`;
+      energyEl.className='v '+(totalSupply>=totalDemand?'energy-ok':'energy-bad');
+      updateHUD();
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function triggerGameOver(){
+    gameOver=true;
+    document.getElementById('go-stats').textContent=`Welle ${wave} erreicht — ${buildings.length} Gebäude gebaut`;
+    document.getElementById('gameover').classList.add('show');
+  }
+
+  document.getElementById('btn-pause').addEventListener('pointerdown',()=>{
+    paused=!paused;
+    document.getElementById('btn-pause').textContent = paused? '▶' : '⏸';
+  });
+  document.getElementById('btn-speed').addEventListener('pointerdown',()=>{
+    timeScale = timeScale===1 ? 2 : 1;
+    document.getElementById('btn-speed').textContent = timeScale+'x';
+  });
+  document.getElementById('btn-restart').addEventListener('pointerdown', reset);
+
+  reset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
